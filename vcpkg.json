@@ -1,0 +1,10 @@
+{
+  "name": "reacurl",
+  "version-string": "current",
+  "dependencies": [
+    {
+      "name": "curl",
+      "features": []
+    }
+  ]
+}
