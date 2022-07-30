@@ -1,0 +1,5 @@
+curl = reaper.Curl_EasyInit()
+reaper.Curl_EasySetopt(curl, "URL","https://www.landoleet.org/old/gfx_test.lua")
+retval, buf = reaper.Curl_EasyPerform(curl,"asdfasdf")
+reaper.Curl_EasyCleanup(curl)
+reaper.ShowConsoleMsg(buf)

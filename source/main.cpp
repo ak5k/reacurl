@@ -98,9 +98,8 @@ void Curl_EasyCleanup(CURL* curl)
 }
 
 const char* defCurl_EasySetopt =
-    "int\0CURL*,const char*,const char*,const curl_slist*,const "
-    "curl_blob "
-    "*\0curl,option,value,slistOptional,"
+    "int\0CURL*,const char*,const char*,curl_slist*,"
+    "curl_blob*\0curl,option,value,slistOptional,"
     "blobOptional\0"
     "use option without CURLOPT_ prefix\n"
     "set value as string\n"
@@ -111,8 +110,8 @@ int Curl_EasySetopt(
     CURL* curl,
     const char* option,
     const char* value,
-    const curl_slist* slistOptional,
-    const curl_blob* blobOptional)
+    curl_slist* slistOptional,
+    curl_blob* blobOptional)
 {
     auto curl_easyoption = curl_easy_option_by_name(option);
     auto option_type = curl_easyoption->type;
@@ -156,6 +155,8 @@ int Curl_EasyPerform(
     }
 
     if (isBuf) {
+        data.write = (char*)malloc(1);
+        data.sizewrite = 0;
         if (bufOptional != nullptr) {
             data.read = bufOptional;
             data.sizeread = strlen(bufOptional);
@@ -167,8 +168,6 @@ int Curl_EasyPerform(
                 (curl_off_t)data.sizeread);
         }
         else {
-            data.write = (char*)malloc(1);
-            data.sizewrite = 0;
             curl_easy_setopt(curl, CURLOPT_WRITEDATA, &data);
             curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_callback);
         }
@@ -417,6 +416,18 @@ int Curl_MimeName(curl_mimepart* part, const char* name)
 
 void Register()
 {
+    plugin_register("API_Curl_EasySetopt", (void*)Curl_EasySetopt);
+    plugin_register("APIdef_Curl_EasySetopt", (void*)defCurl_EasySetopt);
+    plugin_register(
+        "APIvararg_Curl_EasySetopt",
+        reinterpret_cast<void*>(&InvokeReaScriptAPI<&Curl_EasySetopt>));
+
+    plugin_register("API_Curl_EasyPerform", (void*)Curl_EasyPerform);
+    plugin_register("APIdef_Curl_EasyPerform", (void*)defCurl_EasyPerform);
+    plugin_register(
+        "APIvararg_Curl_EasyPerform",
+        reinterpret_cast<void*>(&InvokeReaScriptAPI<&Curl_EasyPerform>));
+
     plugin_register("API_Curl_MimeName", (void*)Curl_MimeName);
     plugin_register("APIdef_Curl_MimeName", (void*)defCurl_MimeName);
     plugin_register(
@@ -548,18 +559,6 @@ void Register()
     plugin_register(
         "APIvararg_Curl_EasyCleanup",
         reinterpret_cast<void*>(&InvokeReaScriptAPI<&Curl_EasyCleanup>));
-
-    plugin_register("APICurl_EasySetopt", (void*)Curl_EasySetopt);
-    plugin_register("APIdef_Curl_EasySetopt", (void*)defCurl_EasySetopt);
-    plugin_register(
-        "APIvararg_Curl_EasySetopt",
-        reinterpret_cast<void*>(&InvokeReaScriptAPI<&Curl_EasySetopt>));
-
-    plugin_register("APICurl_EasyPerform", (void*)Curl_EasyPerform);
-    plugin_register("APIdef_Curl_EasyPerform", (void*)defCurl_EasyPerform);
-    plugin_register(
-        "APIvararg_Curl_EasyPerform",
-        reinterpret_cast<void*>(&InvokeReaScriptAPI<&Curl_EasyPerform>));
 }
 
 } // namespace reacurl
