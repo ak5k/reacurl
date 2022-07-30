@@ -104,6 +104,8 @@ const char* defCurl_EasySetopt =
     "use option without CURLOPT_ prefix\n"
     "set value as string\n"
     "slist and blob are optional\n"
+    "EasyPerform always uses internal memory and file read and write "
+    "callbacks\n"
     "returns CURLcode\n";
 
 int Curl_EasySetopt(
@@ -132,15 +134,20 @@ int Curl_EasySetopt(
 }
 
 const char* defCurl_EasyPerform =
-    "int\0CURL*,const char*,const "
-    "char*,char*,int\0curl,bufOptional,pathOptional,bufOutOptionalNeedBig,"
-    "bufOutOptionalNeedBig_sz\0runs/executes/performs curl\nset path to "
-    "download/upload file\nreturns CURLcode\n";
+    "int\0CURL*,const char*,"
+    "const "
+    "int*,char*,int\0curl,bufOptional,isPathInOptional,bufOutOptionalNeedBig,"
+    "bufOutOptionalNeedBig_sz\0"
+    "runs/executes/performs curl\n"
+    "set isPathIn 1 to file download/upload\n"
+    "EasyPerform always uses internal memory and file read and write "
+    "callbacks\n"
+    "returns CURLcode\n";
 
 int Curl_EasyPerform(
     CURL* curl,
     const char* bufOptional,
-    const char* pathOptional,
+    int* isPathInOptional,
     char* bufOutOptionalNeedBig,
     int bufOutOptionalNeedBig_sz)
 {
@@ -149,7 +156,7 @@ int Curl_EasyPerform(
     bool isBuf {true};
     bool isFile {false};
 
-    if (pathOptional != nullptr) {
+    if (isPathInOptional != nullptr && isPathInOptional) {
         isBuf = false;
         isFile = true;
     }
@@ -174,7 +181,7 @@ int Curl_EasyPerform(
     }
 
     if (isFile) {
-        fd = fopen(pathOptional, "a+");
+        fd = fopen(bufOptional, "a+");
         if (!fd) {
             return 1;
         }
@@ -195,10 +202,10 @@ int Curl_EasyPerform(
     auto res = curl_easy_perform(curl);
 
     if (isBuf) {
-        if (realloc_cmd_ptr(
-                &bufOutOptionalNeedBig,
-                &bufOutOptionalNeedBig_sz,
-                (int)data.sizeread)) {
+        if (data.sizewrite > 0 && realloc_cmd_ptr(
+                                      &bufOutOptionalNeedBig,
+                                      &bufOutOptionalNeedBig_sz,
+                                      (int)data.sizeread)) {
             memcpy(bufOutOptionalNeedBig, data.write, data.sizewrite);
         }
         free(data.write);
@@ -414,8 +421,101 @@ int Curl_MimeName(curl_mimepart* part, const char* name)
     return curl_mime_name(part, name);
 }
 
+const char* defCurl_EasySend =
+    "int\0CURL*,const char*,int,int*\0curl,buffer,buflen,nOut\0"
+    "easy send\n"
+    "returns CURLcode and sent";
+
+int Curl_EasySend(CURL* curl, const char* buffer, int buflen, int* nOut)
+{
+    size_t n;
+    int res = curl_easy_send(curl, buffer, size_t(buflen), &n);
+    *nOut = (int)n;
+    return res;
+}
+
+const char* defCurl_EasyReceive =
+    "int\0CURL*,int,int*,char*,int\0curl,buflen,nOut,bufOutNeedBig,"
+    "bufOutNeedBig_sz\0"
+    "easy receive\n"
+    "returns CURLcode, received and buffer";
+
+int Curl_EasyReceive(
+    CURL* curl,
+    int buflen,
+    int* nOut,
+    char* bufOutNeedBig,
+    int bufOutNeedBig_sz)
+{
+    size_t n;
+    int res = 1;
+    char* buffer = (char*)malloc(buflen + 1);
+    res = curl_easy_recv(curl, buffer, (buflen + 1) * sizeof(buffer), &n);
+    *nOut = (int)n;
+    if (!realloc_cmd_ptr(&bufOutNeedBig, &bufOutNeedBig_sz, *nOut)) {
+        res = 1;
+    }
+    free(buffer);
+    return res;
+}
+
+const char* defCurl_WaitOnSocket =
+    "int\0CURL*,bool,int\0curl,for_receive,timeout_ms\0"
+    "returns the number of signalled sockets or -1\n"
+    "";
+
+static int Curl_WaitOnSocket(CURL* curl, bool for_receive, int timeout_ms)
+{
+    curl_socket_t sockfd;
+    if (curl_easy_getinfo(curl, CURLINFO_ACTIVESOCKET, &sockfd) != CURLE_OK) {
+        return -1;
+    };
+
+    struct timeval tv;
+    fd_set infd, outfd, errfd;
+    int res;
+
+    tv.tv_sec = timeout_ms / 1000;
+    tv.tv_usec = (timeout_ms % 1000) * 1000;
+
+    FD_ZERO(&infd);
+    FD_ZERO(&outfd);
+    FD_ZERO(&errfd);
+
+    FD_SET(sockfd, &errfd); /* always check for error */
+
+    if (for_receive) {
+        FD_SET(sockfd, &infd);
+    }
+    else {
+        FD_SET(sockfd, &outfd);
+    }
+
+    /* select() returns the number of signalled sockets or -1 */
+    res = select((int)sockfd + 1, &infd, &outfd, &errfd, &tv);
+    return res;
+}
+
 void Register()
 {
+    plugin_register("API_Curl_WaitOnSocket", (void*)Curl_WaitOnSocket);
+    plugin_register("APIdef_Curl_WaitOnSocket", (void*)defCurl_WaitOnSocket);
+    plugin_register(
+        "APIvararg_Curl_WaitOnSocket",
+        reinterpret_cast<void*>(&InvokeReaScriptAPI<&Curl_WaitOnSocket>));
+
+    plugin_register("API_Curl_EasyReceive", (void*)Curl_EasyReceive);
+    plugin_register("APIdef_Curl_EasyReceive", (void*)defCurl_EasyReceive);
+    plugin_register(
+        "APIvararg_Curl_EasyReceive",
+        reinterpret_cast<void*>(&InvokeReaScriptAPI<&Curl_EasyReceive>));
+
+    plugin_register("API_Curl_EasySend", (void*)Curl_EasySend);
+    plugin_register("APIdef_Curl_EasySend", (void*)defCurl_EasySend);
+    plugin_register(
+        "APIvararg_Curl_EasySend",
+        reinterpret_cast<void*>(&InvokeReaScriptAPI<&Curl_EasySend>));
+
     plugin_register("API_Curl_EasySetopt", (void*)Curl_EasySetopt);
     plugin_register("APIdef_Curl_EasySetopt", (void*)defCurl_EasySetopt);
     plugin_register(
