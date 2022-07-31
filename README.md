@@ -1,4 +1,4 @@
-# reacurl
+# ReaCurl
 ## libcurl Easy Interface partial bindings for REAPER ReaScript
 ```
 Curl_EasyCleanup      Curl_EasyUnescape     Curl_MimeName     	    
