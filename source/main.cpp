@@ -1,7 +1,7 @@
+#include <cstdio>
+#include <cstdlib>
 #include <curl/curl.h>
 #include <reaper_vararg.hpp>
-#include <stdio.h>
-#include <stdlib.h>
 #include <string>
 
 #define REAPERAPI_IMPLEMENT
@@ -86,6 +86,8 @@ const char* defCurl_EasyInit =
 
 CURL* Curl_EasyInit()
 {
+    static int res = (int)curl_global_init(CURL_GLOBAL_DEFAULT);
+    (void)res;
     return curl_easy_init();
 }
 
@@ -98,9 +100,8 @@ void Curl_EasyCleanup(CURL* curl)
 }
 
 const char* defCurl_EasySetopt =
-    "int\0CURL*,const char*,const char*,curl_slist*,"
-    "curl_blob*\0curl,option,value,slistOptional,"
-    "blobOptional\0"
+    "int\0CURL*,const char*,const char*,void*"
+    "\0curl,option,value,curl_type_dataOptional\0"
     "use option without CURLOPT_ prefix\n"
     "set value as string\n"
     "slist and blob are optional\n"
@@ -112,8 +113,7 @@ int Curl_EasySetopt(
     CURL* curl,
     const char* option,
     const char* value,
-    curl_slist* slistOptional,
-    curl_blob* blobOptional)
+    void* curl_type_dataOptional)
 {
     auto curl_easyoption = curl_easy_option_by_name(option);
     auto option_type = curl_easyoption->type;
@@ -125,19 +125,24 @@ int Curl_EasySetopt(
         return curl_easy_setopt(curl, curl_easyoption->id, value);
     }
     if (option_type == CURLOT_BLOB) {
-        return curl_easy_setopt(curl, curl_easyoption->id, blobOptional);
+        return curl_easy_setopt(
+            curl,
+            curl_easyoption->id,
+            (curl_blob*)curl_type_dataOptional);
     }
     if (option_type == CURLOT_SLIST) {
-        return curl_easy_setopt(curl, curl_easyoption->id, slistOptional);
+        return curl_easy_setopt(
+            curl,
+            curl_easyoption->id,
+            (curl_slist*)curl_type_dataOptional);
     }
     return (int)curl_easy_setopt(curl, curl_easyoption->id, nullptr);
 }
 
 const char* defCurl_EasyPerform =
-    "int\0CURL*,const char*,"
-    "const "
-    "int*,char*,int\0curl,bufOptional,isPathInOptional,bufOutOptionalNeedBig,"
-    "bufOutOptionalNeedBig_sz\0"
+    "int\0CURL*,char*,int,bool*\0curl,"
+    "bufOutOptionalNeedBig,"
+    "bufOutOptionalNeedBig_sz,isPathInOptional\0"
     "runs/executes/performs curl\n"
     "set isPathIn 1 to file download/upload\n"
     "EasyPerform always uses internal memory and file read and write "
@@ -146,15 +151,15 @@ const char* defCurl_EasyPerform =
 
 int Curl_EasyPerform(
     CURL* curl,
-    const char* bufOptional,
-    int* isPathInOptional,
-    char* bufOutOptionalNeedBig,
-    int bufOutOptionalNeedBig_sz)
+    char* bufInOutOptionalNeedBig,
+    int bufInOutOptionalNeedBig_sz,
+    bool* isPathInOptional)
 {
-    struct Memory data;
-    FILE* fd;
     bool isBuf {true};
     bool isFile {false};
+
+    struct Memory data;
+    FILE* fp;
 
     if (isPathInOptional != nullptr && isPathInOptional) {
         isBuf = false;
@@ -164,9 +169,10 @@ int Curl_EasyPerform(
     if (isBuf) {
         data.write = (char*)malloc(1);
         data.sizewrite = 0;
-        if (bufOptional != nullptr) {
-            data.read = bufOptional;
-            data.sizeread = strlen(bufOptional);
+        if (bufInOutOptionalNeedBig != nullptr &&
+            strlen(bufInOutOptionalNeedBig) != 0) {
+            data.read = bufInOutOptionalNeedBig;
+            data.sizeread = strlen(bufInOutOptionalNeedBig);
             curl_easy_setopt(curl, CURLOPT_READDATA, &data);
             curl_easy_setopt(curl, CURLOPT_READFUNCTION, read_callback);
             curl_easy_setopt(
@@ -181,18 +187,18 @@ int Curl_EasyPerform(
     }
 
     if (isFile) {
-        fd = fopen(bufOptional, "a+");
-        if (!fd) {
+        fp = fopen(bufInOutOptionalNeedBig, "a+");
+        if (!fp) {
             return 1;
         }
         struct stat file_info;
-        if (fstat(fileno(fd), &file_info) != 0) {
+        if (fstat(fileno(fp), &file_info) != 0) {
             return 1; /* cannot continue */
         }
         curl_easy_setopt(curl, CURLOPT_READFUNCTION, readfile_callback);
         curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, writefile_callback);
-        curl_easy_setopt(curl, CURLOPT_READDATA, fd);
-        curl_easy_setopt(curl, CURLOPT_WRITEDATA, fd);
+        curl_easy_setopt(curl, CURLOPT_READDATA, fp);
+        curl_easy_setopt(curl, CURLOPT_WRITEDATA, fp);
         curl_easy_setopt(
             curl,
             CURLOPT_INFILESIZE_LARGE,
@@ -201,17 +207,17 @@ int Curl_EasyPerform(
 
     auto res = curl_easy_perform(curl);
 
+    if (isFile) {
+        fclose(fp);
+    }
     if (isBuf) {
         if (data.sizewrite > 0 && realloc_cmd_ptr(
-                                      &bufOutOptionalNeedBig,
-                                      &bufOutOptionalNeedBig_sz,
+                                      &bufInOutOptionalNeedBig,
+                                      &bufInOutOptionalNeedBig_sz,
                                       (int)data.sizeread)) {
-            memcpy(bufOutOptionalNeedBig, data.write, data.sizewrite);
+            memcpy(bufInOutOptionalNeedBig, data.write, data.sizewrite);
         }
         free(data.write);
-    }
-    if (isFile) {
-        fclose(fd);
     }
     return (int)res;
 }
@@ -678,7 +684,7 @@ REAPER_PLUGIN_DLL_EXPORT int ReaperPluginEntry(
         REAPERAPI_LoadAPI(rec->GetFunc)) {
         return 0;
     }
-    curl_global_init(CURL_GLOBAL_ALL);
+    // curl_global_init(CURL_GLOBAL_ALL);
     reacurl::Register();
     return 1;
 }
