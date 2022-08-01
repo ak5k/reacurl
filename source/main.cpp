@@ -59,7 +59,7 @@ static size_t write_callback(
 
     return len;
 }
-
+/*
 static size_t readfile_callback(
     char* ptr,
     size_t size,
@@ -77,7 +77,7 @@ static size_t writefile_callback(
 {
     return fwrite(ptr, size, nmemb, (FILE*)stream);
 }
-
+ */
 const char* defCurl_EasyInit =
     "CURL*\0\0\0returns curl handle\n"
     "study include/curl/curl.h"
@@ -195,8 +195,8 @@ int Curl_EasyPerform(
         if (fstat(fileno(fp), &file_info) != 0) {
             return 1; /* cannot continue */
         }
-        curl_easy_setopt(curl, CURLOPT_READFUNCTION, readfile_callback);
-        curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, writefile_callback);
+        curl_easy_setopt(curl, CURLOPT_READFUNCTION, fread);
+        curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, fwrite);
         curl_easy_setopt(curl, CURLOPT_READDATA, fp);
         curl_easy_setopt(curl, CURLOPT_WRITEDATA, fp);
         curl_easy_setopt(
@@ -214,7 +214,7 @@ int Curl_EasyPerform(
         if (data.sizewrite > 0 && realloc_cmd_ptr(
                                       &bufInOutOptionalNeedBig,
                                       &bufInOutOptionalNeedBig_sz,
-                                      (int)data.sizeread)) {
+                                      (int)data.sizewrite)) {
             memcpy(bufInOutOptionalNeedBig, data.write, data.sizewrite);
         }
         free(data.write);
