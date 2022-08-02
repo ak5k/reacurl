@@ -98,6 +98,7 @@ for:
       - cmake --build build
     artifacts:
       - path: build\reaper_*.dll
+      - path: examples\reacurl-get.lua
 
 environment:
   matrix:
