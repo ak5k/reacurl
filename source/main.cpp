@@ -11,10 +11,8 @@ namespace reacurl {
 
 struct Memory {
     const char* read;
-    char* write;
     size_t sizeread;
-    size_t sizewrite;
-    size_t sizealloc;
+    std::string write;
 };
 
 static size_t read_callback(char* ptr, size_t size, size_t nmemb, void* userp)
@@ -48,39 +46,13 @@ static size_t write_callback(
     size_t len = size * nmemb;
     struct Memory* mem = (struct Memory*)userp;
 
-    if (mem->sizealloc < len) {
-        char* ptr = (char*)realloc(mem->write, len * 2);
-        if (!ptr) {
-            return 0;
-        }
-        mem->sizealloc = len * 2;
-        mem->write = ptr;
-        // if (!realloc_cmd_ptr(
-        //         &(mem->write),
-        //         (int*)&(mem->sizealloc),
-        //         (int)(len * 2))) {
-        //     return 0;
-        // }
+    try {
+        mem->write.append((const char*)contents, len);
     }
-
-    if (mem->sizealloc < mem->sizewrite + len + 1) {
-        char* ptr = (char*)realloc(mem->write, mem->sizealloc * 2);
-        if (!ptr) {
-            return 0;
-        }
-        mem->sizealloc = mem->sizealloc * 2;
-        mem->write = ptr;
-        // if (!realloc_cmd_ptr(
-        //         &(mem->write),
-        //         (int*)&(mem->sizealloc),
-        //         (int)(mem->sizealloc * 2))) {
-        //     return 0;
-        // }
+    catch (const std::exception& e) {
+        (void)e;
+        return 0;
     }
-
-    memcpy(&(mem->write[mem->sizewrite]), contents, len);
-    mem->sizewrite += len;
-    mem->write[mem->sizewrite] = 0;
 
     return len;
 }
@@ -177,9 +149,6 @@ int Curl_EasyPerform(
     }
 
     if (isBuf) {
-        data.write = nullptr;
-        data.sizealloc = 0;
-        data.sizewrite = 0;
         if (bufInOutOptionalNeedBig != nullptr &&
             strlen(bufInOutOptionalNeedBig) != 0) {
             data.read = bufInOutOptionalNeedBig;
@@ -222,17 +191,15 @@ int Curl_EasyPerform(
         fclose(fp);
     }
     if (isBuf) {
-        if (data.sizewrite > 0 && realloc_cmd_ptr(
-                                      &bufInOutOptionalNeedBig,
-                                      &bufInOutOptionalNeedBig_sz,
-                                      (int)data.sizewrite)) {
-            memcpy(bufInOutOptionalNeedBig, data.write, data.sizewrite);
+        if (!data.write.empty() && realloc_cmd_ptr(
+                                       &bufInOutOptionalNeedBig,
+                                       &bufInOutOptionalNeedBig_sz,
+                                       (int)data.write.length())) {
+            memcpy(
+                bufInOutOptionalNeedBig,
+                data.write.c_str(),
+                data.write.length());
         }
-        free(data.write);
-        // char* ptr = bufInOutOptionalNeedBig;
-        // bufInOutOptionalNeedBig = data.write;
-        // (void)bufInOutOptionalNeedBig;
-        // FreeHeapPtr(ptr);
     }
     return (int)res;
 }
