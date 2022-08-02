@@ -14,6 +14,7 @@ struct Memory {
     char* write;
     size_t sizeread;
     size_t sizewrite;
+    size_t sizealloc;
 };
 
 static size_t read_callback(char* ptr, size_t size, size_t nmemb, void* userp)
@@ -47,37 +48,43 @@ static size_t write_callback(
     size_t len = size * nmemb;
     struct Memory* mem = (struct Memory*)userp;
 
-    char* ptr = (char*)realloc(mem->write, mem->sizewrite + len + 1);
-    if (!ptr) {
-        return 0;
+    if (mem->sizealloc < len) {
+        char* ptr = (char*)realloc(mem->write, len * 2);
+        if (!ptr) {
+            return 0;
+        }
+        mem->sizealloc = len * 2;
+        mem->write = ptr;
+        // if (!realloc_cmd_ptr(
+        //         &(mem->write),
+        //         (int*)&(mem->sizealloc),
+        //         (int)(len * 2))) {
+        //     return 0;
+        // }
     }
 
-    mem->write = ptr;
+    if (mem->sizealloc < mem->sizewrite + len + 1) {
+        char* ptr = (char*)realloc(mem->write, mem->sizealloc * 2);
+        if (!ptr) {
+            return 0;
+        }
+        mem->sizealloc = mem->sizealloc * 2;
+        mem->write = ptr;
+        // if (!realloc_cmd_ptr(
+        //         &(mem->write),
+        //         (int*)&(mem->sizealloc),
+        //         (int)(mem->sizealloc * 2))) {
+        //     return 0;
+        // }
+    }
+
     memcpy(&(mem->write[mem->sizewrite]), contents, len);
     mem->sizewrite += len;
     mem->write[mem->sizewrite] = 0;
 
     return len;
 }
-/*
-static size_t readfile_callback(
-    char* ptr,
-    size_t size,
-    size_t nmemb,
-    void* stream)
-{
-    return fread(ptr, size, nmemb, (FILE*)stream);
-}
 
-static size_t writefile_callback(
-    void* ptr,
-    size_t size,
-    size_t nmemb,
-    void* stream)
-{
-    return fwrite(ptr, size, nmemb, (FILE*)stream);
-}
- */
 const char* defCurl_EasyInit =
     "CURL*\0\0\0returns curl handle\n"
     "study include/curl/curl.h"
@@ -167,7 +174,8 @@ int Curl_EasyPerform(
     }
 
     if (isBuf) {
-        data.write = (char*)malloc(1);
+        data.write = nullptr;
+        data.sizealloc = 0;
         data.sizewrite = 0;
         if (bufInOutOptionalNeedBig != nullptr &&
             strlen(bufInOutOptionalNeedBig) != 0) {
@@ -218,6 +226,10 @@ int Curl_EasyPerform(
             memcpy(bufInOutOptionalNeedBig, data.write, data.sizewrite);
         }
         free(data.write);
+        // char* ptr = bufInOutOptionalNeedBig;
+        // bufInOutOptionalNeedBig = data.write;
+        // (void)bufInOutOptionalNeedBig;
+        // FreeHeapPtr(ptr);
     }
     return (int)res;
 }
