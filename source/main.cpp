@@ -152,6 +152,9 @@ const char* defCurl_EasyPerform =
     "bufOutOptionalNeedBig_sz,isPathInOptional\0"
     "runs/executes/performs curl\n"
     "set isPathIn true to file download/upload\n"
+    "path is accessed in read/write mode"
+    "if missing, creates new file"
+    "if exists, appends data to file"
     "EasyPerform always uses internal memory and file read and write "
     "callbacks\n"
     "returns CURLcode\n";
