@@ -70,7 +70,7 @@ for:
 
       - |-
         case $ARCH in
-        i386)
+        i386|x86_64)
           export DEPLOY_TARGET=10.9 XCODE_VERSION=9.4.1
           sudo xcode-select -s /Applications/Xcode-$XCODE_VERSION.app
           ;;
