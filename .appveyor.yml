@@ -71,15 +71,14 @@ for:
       - |-
         case $ARCH in
         arm64)
-          sudo xcode-select -s /Applications/Xcode-$XCODE_VERSION.app
           export DEPLOY_TARGET=11.0 XCODE_VERSION=12.3
           ;;
         *)
           export DEPLOY_TARGET=10.9 XCODE_VERSION=9.4.1
-          sudo xcode-select -s /Applications/Xcode-$XCODE_VERSION.app
           ;;
         esac
 
+      - sudo xcode-select -s /Applications/Xcode-$XCODE_VERSION.app
 
       # https://letsencrypt.org/docs/dst-root-ca-x3-expiration-september-2021/
       - sudo curl -k https://curl.se/ca/cacert.pem -o /etc/ssl/cert.pem
