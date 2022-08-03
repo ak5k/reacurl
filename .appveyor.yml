@@ -70,15 +70,13 @@ for:
 
       - |-
         case $ARCH in
-        i386)
-          export DEPLOY_TARGET=10.9 XCODE_VERSION=9.4.1
-          sudo xcode-select -s /Applications/Xcode-$XCODE_VERSION.app
-          ;;
         arm64)
           sudo xcode-select -s /Applications/Xcode-$XCODE_VERSION.app
           export DEPLOY_TARGET=11.0 XCODE_VERSION=12.3
           ;;
         *)
+          export DEPLOY_TARGET=10.9 XCODE_VERSION=9.4.1
+          sudo xcode-select -s /Applications/Xcode-$XCODE_VERSION.app
           ;;
         esac
 
