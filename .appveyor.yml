@@ -70,13 +70,18 @@ for:
 
       - |-
         case $ARCH in
-        i386|x86_64)
+        i386)
           export DEPLOY_TARGET=10.9 XCODE_VERSION=9.4.1
           sudo xcode-select -s /Applications/Xcode-$XCODE_VERSION.app
+          ;;
+        arm64)
+          sudo xcode-select -s /Applications/Xcode-$XCODE_VERSION.app
+          export DEPLOY_TARGET=11.0 XCODE_VERSION=12.3
           ;;
         *)
           ;;
         esac
+
 
       # https://letsencrypt.org/docs/dst-root-ca-x3-expiration-september-2021/
       - sudo curl -k https://curl.se/ca/cacert.pem -o /etc/ssl/cert.pem
@@ -105,15 +110,15 @@ for:
 
 environment:
   matrix:
+    - job_name: macOS x86 64-bit
+      appveyor_build_worker_image: macos-mojave
+      ARCH: x86_64
     - job_name: macOS ARM 64-bit
       appveyor_build_worker_image: macos-bigsur
       ARCH: arm64
     - job_name: macOS x86 32-bit
       appveyor_build_worker_image: macos-mojave
       ARCH: i386
-    - job_name: macOS x86 64-bit
-      appveyor_build_worker_image: macos-catalina
-      ARCH: x86_64
     - job_name: Linux x86 64-bit
       appveyor_build_worker_image: *linux
       ARCH: x86_64
