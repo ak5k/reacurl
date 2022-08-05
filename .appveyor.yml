@@ -71,6 +71,7 @@ for:
       - |-
         case $ARCH in
         arm64) export DEPLOY_TARGET=11.0 XCODE_VERSION=12.3  ;;
+        x86_64) XCODE_VERSION=9.4.1  ;;
         *)     export DEPLOY_TARGET=10.9 XCODE_VERSION=9.4.1 ;;
         esac
       - sudo xcode-select -s /Applications/Xcode-$XCODE_VERSION.app
@@ -78,7 +79,7 @@ for:
       # https://letsencrypt.org/docs/dst-root-ca-x3-expiration-september-2021/
       - sudo curl -k https://curl.se/ca/cacert.pem -o /etc/ssl/cert.pem
     build_script:
-    - cmake -B build -DCMAKE_BUILD_TYPE=RelWithDbInfo
+    - cmake -B build -DCMAKE_BUILD_TYPE=Release
       -DVCPKG_TARGET_TRIPLET=$TRIPLET -DCMAKE_TOOLCHAIN_FILE=$TOOLCHAIN
       -DCMAKE_OSX_ARCHITECTURES=$ARCH
     - cmake --build build --target reaper_reacurl
@@ -103,10 +104,10 @@ for:
 environment:
   matrix:
     - job_name: macOS x86 64-bit
-      appveyor_build_worker_image: macos
+      appveyor_build_worker_image: macos-catalina
       ARCH: x86_64
     - job_name: macOS ARM 64-bit
-      appveyor_build_worker_image: macos
+      appveyor_build_worker_image: macos-catalina
       ARCH: arm64
     - job_name: macOS x86 32-bit
       appveyor_build_worker_image: macos-mojave
