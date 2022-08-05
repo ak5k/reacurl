@@ -71,7 +71,7 @@ for:
       - |-
         case $ARCH in
         arm64) export DEPLOY_TARGET=11.0 XCODE_VERSION=12.3  ;;
-        x86_64) XCODE_VERSION=12.3 ;;
+        x86_64) export DEPLOY_TARGET=10.4 XCODE_VERSION=12.3 ;;
         *)     export DEPLOY_TARGET=10.9 XCODE_VERSION=9.4.1 ;;
         esac
       - sudo xcode-select -s /Applications/Xcode-$XCODE_VERSION.app
